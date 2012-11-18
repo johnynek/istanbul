@@ -1,0 +1,6 @@
+Immutable C++0x data structures modeled on Scala's collection library
+
+to build:
+run:
+cmake ./
+make
