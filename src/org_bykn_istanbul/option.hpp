@@ -36,8 +36,8 @@ class Option {
    bool operator!=(Option<T> that) const { return (_is_set != that._is_set || _value != that._value); }
 
   private:
-    T _value;
-    bool _is_set;  
+    const T _value;
+    const bool _is_set;  
 };
 
 }

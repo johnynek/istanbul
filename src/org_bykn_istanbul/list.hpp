@@ -68,8 +68,8 @@ class List : public Iterable<T> {
       });
     }
 
-    std::shared_ptr<Iterator<T>> iterator() const {
-      return std::shared_ptr<Iterator<T>>(new ListIterator(*this));
+    std::unique_ptr<Iterator<T>> iterator() const {
+      return std::move(std::unique_ptr<Iterator<T>>(new ListIterator(*this)));
     }
 
     template<typename R>
@@ -100,20 +100,40 @@ class List : public Iterable<T> {
 
   private:
     List(): _head(), _tail() { }
+    List(const List<T>& other): _head(other._head), _tail(other._tail) { }
     List(const T& head, const std::shared_ptr<List<T>>& tail): _head(head), _tail(tail) { }
     List(T&& head, const std::shared_ptr<List<T>>& tail): _head(head), _tail(tail) { }
    
   class ListIterator : public Iterator<T> {
     public:
-      ListIterator(const List<T>& start): _ptr(start) { }
-      bool hasNext() const { return !_ptr.isEmpty(); }
+      // We are jumping through hoops here to avoid doing reference counting arithmetic
+      // on each advancement: keep the first tail in scope, then we know the rest is not
+      // deleted yet.
+      ListIterator(const List<T>& start): _first_head(start.head()), _first_tail(start.tail()), _ptr(nullptr) { }
+      bool hasNext() const {
+        if(_ptr == nullptr) {
+          // The tail is null, which means start was actually empty
+          return _first_tail.get() != nullptr;
+        }
+        else {
+          return !_ptr->isEmpty();
+        }
+      }
       T next() {
-        T head = _ptr.head();
-        _ptr = *_ptr.tail();
-        return head;
+        if(_ptr == nullptr) {
+          _ptr = _first_tail.get();
+          return _first_head;
+        }
+        else {
+          T head = _ptr->head();
+          _ptr = _ptr->tail().get();
+          return head;
+        }
       }
     private:
-      List<T> _ptr; 
+      const T _first_head;
+      const std::shared_ptr<List<T>> _first_tail; 
+      List<T>* _ptr; 
   };
 
    void foreach_ptr(std::function<void(const List<T>*)> fn) const {
@@ -124,8 +144,8 @@ class List : public Iterable<T> {
       }
     }
     static std::shared_ptr<List<T>> _empty;
-    T _head;
-    std::shared_ptr<List<T>> _tail;    
+    const T _head;
+    const std::shared_ptr<List<T>> _tail;    
 };
 
 // Initialize the static member variables:

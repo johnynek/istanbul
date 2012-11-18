@@ -9,7 +9,7 @@ namespace org_bykn_istanbul {
 template<typename T>
 class Iterable {
   public:
-    virtual std::shared_ptr<Iterator<T>> iterator() const = 0;
+    virtual std::unique_ptr<Iterator<T>> iterator() const = 0;
     // STL iteration support
     typedef StlIterator<T> const_iterator;
     const_iterator begin() const { return StlIterator<T>(iterator()); }

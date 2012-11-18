@@ -12,36 +12,46 @@ template<typename T>
 class StlIterator {
   public:
     StlIterator() : _head(), _ptr() { }
-    StlIterator(const std::shared_ptr<Iterator<T>>& list): _head(), _ptr(list) { }
+    StlIterator(std::unique_ptr<Iterator<T>>&& list): _head(), _ptr() { _ptr.swap(list); }
     StlIterator<T>& operator++() {
-      if(_head.isEmpty()) {
-        _head = Option<T>(_ptr->next());
-        if(!_ptr->hasNext()) { _ptr.reset(); }
-      }
-      else {
-        //We already moved:
-        _head = Option<T>();
-      }
+      advance(true);
       return *this;
     }
     // This is semantically const, but not actually constant with-respect to memory/sideeffects
     const T& operator*() {
-      if(_head.isEmpty()) {
-        _head = Option<T>(_ptr->next());
-        if(!_ptr->hasNext()) { _ptr.reset(); }
-      }
-      return _head.get();
+      advance(false);
+      return (*_head);
     }
-    bool operator!=(StlIterator<T> that) const {
-      return (_ptr.get() != that._ptr.get() || finished() != that.finished() || _head != that._head);
+
+    bool operator!=(const StlIterator<T>& that) const {
+      if(this == &that) {
+        return false;
+      }
+      if(finished() && that.finished()) {
+        return false;
+      }
+      
+      return (finished() != that.finished()
+        || _ptr.get() != that._ptr.get()
+        || (_head.get() != that._head.get()));
     }
 
   private:
-    bool finished() const {
-      return (_ptr.get() == nullptr || (_head.isEmpty() && !_ptr->hasNext()));
+    bool headIsEmpty() const { return _head.get() == nullptr; }
+    void advance(bool reset) {
+      if(headIsEmpty()) {
+        _head.reset(new T(_ptr->next()));
+      }
+      else if(reset) {
+        //We already moved:
+        _head.reset();
+      }
     }
-    Option<T> _head;
-    std::shared_ptr<Iterator<T>> _ptr;
+    bool finished() const {
+      return (_ptr.get() == nullptr || (headIsEmpty() && !_ptr->hasNext()));
+    }
+    std::unique_ptr<T> _head;
+    std::unique_ptr<Iterator<T>> _ptr;
 };
 
 }
